@@ -2,6 +2,8 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System;
+using System.Linq;
+using Npgsql.NameTranslation;
 
 namespace Common.Postgre
 {
@@ -25,6 +27,20 @@ namespace Common.Postgre
 
             return services.AddEntityFrameworkNpgsql()
                     .AddDbContext<T>(op => op.UseNpgsql(options.ConnectionString)); ;
+        }
+
+        public static void ApplySnakeCase(this ModelBuilder modelBuilder)
+        {
+            var mapper = new NpgsqlSnakeCaseNameTranslator();
+            var types = modelBuilder.Model.GetEntityTypes().ToList();
+
+            // Refer to tables in snake_case internally
+            types.ForEach(e => e.Relational().TableName = mapper.TranslateMemberName(e.Relational().TableName));
+
+            // Refer to columns in snake_case internally
+            types.SelectMany(e => e.GetProperties())
+                .ToList()
+                .ForEach(p => p.Relational().ColumnName = mapper.TranslateMemberName(p.Relational().ColumnName));
         }
     }
 }
